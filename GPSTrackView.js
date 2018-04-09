@@ -1,40 +1,36 @@
 // ==UserScript==
 // @name                WME GPS Track View
-// @namespace           http://userscripts.org/scripts/show/461960
+// @namespace           https://greasyfork.org/en/scripts/40455-wme-gps-track-view
 // @description         Draws and visualizes custom GPS tracks in Waze Map Editor
 // @include             https://www.waze.com/editor*
 // @include             https://www.waze.com/*/editor*
 // @include             https://beta.waze.com*
-// @exclude             https://www.waze.com/user/editor*
+// @exclude             https://www.waze.com/user*
 // @require             https://greasyfork.org/scripts/24851-wazewrap/code/WazeWrap.js
-// @version             1.3.5
+// @version             2018.04.09.01
 // @grant               none
 // @copyright           2014 wlodek76 / 2017 JustinS83
 // ==/UserScript==
 
-var wmech_version = "2.24";
+var gps_wazeMap;
+var gps_wazeModel;
+var gps_OpenLayers;
 
 //---------------------------------------------------------------------------------------
-function bootstrap_WME_GPS_Track()
-{
-    var bGreasemonkeyServiceDefined = false;
+function bootstrap_WME_GPS_Track(tries) {
+    tries = tries || 1;
 
-    try {
-        bGreasemonkeyServiceDefined = (typeof Components.interfaces.gmIGreasemonkeyService === "object");
+    if (W &&
+        W.map &&
+        W.model &&
+        W.loginManager.user &&
+        $ && OL) {
+        Draw_WME_GPS_Track();
+    } else if (tries < 1000) {
+        setTimeout(function () {bootstrap_WME_GPS_Track(tries++);}, 200);
     }
-    catch (err) { /* Ignore */ }
-
-    if (typeof unsafeWindow === "undefined" || ! bGreasemonkeyServiceDefined) {
-        unsafeWindow	= ( function () {
-            var dummyElem = document.createElement('p');
-            dummyElem.setAttribute('onclick', 'return window;');
-            return dummyElem.onclick();
-        }) ();
-    }
-
-    /* begin running the code! */
-    setInterval(Draw_WME_GPS_Track, 1000);
 }
+
 //---------------------------------------------------------------------------------------
 function min_to_deg(v)
 {
@@ -56,10 +52,6 @@ function calc_azym(pt1, pt2, kierWidth)
 //---------------------------------------------------------------------------------------
 function gps_parse()
 {
-    var gps_wazeMap = W.map;
-    var gps_wazeModel = W.model;
-    var gps_OpenLayers = OpenLayers;
-
     var obj1 = document.getElementById('wme_gps_layer_content');
     var obj2 = document.getElementById('wme_gps_layer_summary');
     var obj3 = document.getElementById('wme_gps_layer_speed');
@@ -789,8 +781,7 @@ function gps_parse()
 
 function clear_layers()
 {
-    var gps_wazeMap = W.map;
-    var layers = gps_wazeMap.getLayersBy("uniqueName","__WME_GPS_Track");
+    let layers = gps_wazeMap.getLayersBy("uniqueName","__WME_GPS_Track");
     if(layers.length !== 0) {
 
         var gps_layer = layers[0];
@@ -798,7 +789,7 @@ function clear_layers()
         gps_layer.removeAllFeatures();
     }
 
-    var layers = gps_wazeMap.getLayersBy("uniqueName","__Polygon_View");
+    layers = gps_wazeMap.getLayersBy("uniqueName","__Polygon_View");
     // layers.styleMap = new gps_OpenLayers.StyleMap(aStyle);
     if(layers.length !== 0) {
 
@@ -810,7 +801,49 @@ function clear_layers()
 //---------------------------------------------------------------------------------------
 function Draw_WME_GPS_Track()
 {
-    if(document.getElementById('wme_gps_layer') === null) {
+    gps_wazeMap = W.map;
+    gps_wazeModel = W.model;
+    gps_OpenLayers = OpenLayers;
+
+    var layers = gps_wazeMap.getLayersBy("uniqueName","__WME_GPS_Track");
+    if(layers.length === 0) {
+        var gps_style = new gps_OpenLayers.Style({
+            strokeDashstyle: 'solid',
+            strokeColor : "${strokeColor}",
+            strokeOpacity: 1.0,
+            strokeWidth: "${lineWidth}",
+            //strokeLinecap: 'square',
+            fillColor: '#000000',
+            fillOpacity: 1.0,
+            pointRadius: 2,
+            fontWeight: "normal",
+            label : "${labelText}",
+            fontFamily: "Tahoma, Courier New",
+            labelOutlineColor: "#FFFFFF",
+            labelOutlineWidth: 2,
+            fontColor: '#000000',
+            fontSize: "10px"
+        });
+
+        var gps_mapLayer = new gps_OpenLayers.Layer.Vector("GPS Track View", {
+            displayInLayerSwitcher: true,
+            uniqueName: "__WME_GPS_Track",
+            styleMap: new gps_OpenLayers.StyleMap(gps_style)
+        });
+
+        I18n.translations[I18n.currentLocale()].layers.name["__WME_GPS_Track"] = "GPS Track View";
+        gps_wazeMap.addLayer(gps_mapLayer);
+        gps_mapLayer.setVisibility(true);
+
+        var polygon_mapLayer = new gps_OpenLayers.Layer.Vector("Polygon View", {
+            displayInLayerSwitcher: true,
+            uniqueName: "__Polygon_View"
+            // styleMap: new gps_OpenLayers.StyleMap(gps_style)
+        });
+
+        I18n.translations[I18n.currentLocale()].layers.name["__Polygon_View"] = "Polygon View";
+        gps_wazeMap.addLayer(polygon_mapLayer);
+        polygon_mapLayer.setVisibility(true);
 
         var cnt = '';
         cnt += '<br><div id="wme_gps_layer" style="color:#000000; ">';
@@ -849,70 +882,13 @@ function Draw_WME_GPS_Track()
 		$("#sidepanel-drives").append(btnClear);
 		$("#sidepanel-drives").append(info);*/
 
-        return;
-    }
 
-    function hookClickEvents(){
-        $('#wme_clear_layers_button').click(clear_layers);
-        $('#wme_gps_layer_button').click(gps_parse);
-    }
-
-    var gps_wazeMap = W.map;
-    var gps_wazeModel = W.model;
-    var gps_OpenLayers = OL;
-
-    if (gps_wazeMap === null) return;
-    if (gps_wazeModel === null) return;
-    if (gps_OpenLayers === null) return;
+        function hookClickEvents(){
+            $('#wme_clear_layers_button').click(clear_layers);
+            $('#wme_gps_layer_button').click(gps_parse);
+        }
 
 
-
-
-
-    var layers = gps_wazeMap.getLayersBy("uniqueName","__WME_GPS_Track");
-    if(layers.length === 0) {
-        var gps_style = new gps_OpenLayers.Style({
-            strokeDashstyle: 'solid',
-            strokeColor : "${strokeColor}",
-            strokeOpacity: 1.0,
-            strokeWidth: "${lineWidth}",
-            //strokeLinecap: 'square',
-            fillColor: '#000000',
-            fillOpacity: 1.0,
-            pointRadius: 2,
-            fontWeight: "normal",
-            label : "${labelText}",
-            fontFamily: "Tahoma, Courier New",
-            labelOutlineColor: "#FFFFFF",
-            labelOutlineWidth: 2,
-            fontColor: '#000000',
-            fontSize: "10px"
-        });
-
-        var gps_mapLayer = new gps_OpenLayers.Layer.Vector("GPS Track View", {
-            displayInLayerSwitcher: true,
-            uniqueName: "__WME_GPS_Track",
-            styleMap: new gps_OpenLayers.StyleMap(gps_style)
-        });
-
-        I18n.translations[I18n.currentLocale()].layers.name["__WME_GPS_Track"] = "GPS Track View";
-        gps_wazeMap.addLayer(gps_mapLayer);
-        gps_mapLayer.setVisibility(true);
-
-
-
-
-        var polygon_mapLayer = new gps_OpenLayers.Layer.Vector("Polygon View", {
-            displayInLayerSwitcher: true,
-            uniqueName: "__Polygon_View"
-            // styleMap: new gps_OpenLayers.StyleMap(gps_style)
-        });
-
-        I18n.translations[I18n.currentLocale()].layers.name["__Polygon_View"] = "Polygon View";
-        gps_wazeMap.addLayer(polygon_mapLayer);
-        polygon_mapLayer.setVisibility(true);
-
-        return;
     }
 
 }
