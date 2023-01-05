@@ -2,12 +2,12 @@
 // @name                WME GPS Track View
 // @namespace           https://greasyfork.org/en/scripts/40455-wme-gps-track-view
 // @description         Draws and visualizes custom GPS tracks in Waze Map Editor
-// @include             https://www.waze.com/editor*
-// @include             https://www.waze.com/*/editor*
-// @include             https://beta.waze.com*
+// @match               https://www.waze.com/editor*
+// @match               https://www.waze.com/*/editor*
+// @match               https://beta.waze.com*
 // @exclude             https://www.waze.com/user*
 // @require             https://greasyfork.org/scripts/24851-wazewrap/code/WazeWrap.js
-// @version             2018.04.09.01
+// @version             2023.04.03
 // @grant               none
 // @copyright           2014 wlodek76 / 2017 JustinS83
 // ==/UserScript==
@@ -27,7 +27,7 @@ function bootstrap_WME_GPS_Track(tries) {
         $ && OL) {
         Draw_WME_GPS_Track();
     } else if (tries < 1000) {
-        setTimeout(function () {bootstrap_WME_GPS_Track(tries++);}, 200);
+        setTimeout(function () {bootstrap_WME_GPS_Track(tries++);}, 400);
     }
 }
 
